@@ -29,20 +29,28 @@ export class Viewer {
     this.render();
   }
 
-  clear() {
+  clearModel() {
     for (const m of this.model.children) {
       m.geometry.dispose();
       m.material.dispose();
     }
     this.model.clear();
+  }
+
+  clear() {
+    this.clearModel();
     if (this.grid) this.scene.remove(this.grid);
     this.grid = null;
+    this.framed = false;
     this.render();
   }
 
   // parts: [{ name, color, tris: Float32Array (world space) }]
-  show(parts) {
-    this.clear();
+  // keepCamera: refresh the meshes without moving the camera (after edits).
+  show(parts, keepCamera) {
+    const keep = keepCamera && this.framed;
+    if (keep) this.clearModel();
+    else this.clear();
     const box = new THREE.Box3();
     for (const p of parts) {
       const g = new THREE.BufferGeometry();
@@ -60,7 +68,8 @@ export class Viewer {
       });
       this.model.add(new THREE.Mesh(g, mat));
     }
-    if (box.isEmpty()) return this.render();
+    if (box.isEmpty() || keep) return this.render();
+    this.framed = true;
     const size = box.getSize(new THREE.Vector3());
     const center = box.getCenter(new THREE.Vector3());
     const radius = size.length() / 2 || 1;

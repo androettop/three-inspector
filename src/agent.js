@@ -373,6 +373,12 @@
     return [v.x, v.y, v.z];
   }
 
+  function textureKind(t) {
+    for (const k of ["CubeTexture", "CanvasTexture", "VideoTexture", "DataTexture", "CompressedTexture", "DepthTexture", "Data3DTexture", "DataArrayTexture"])
+      if (t["is" + k]) return k;
+    return "Texture";
+  }
+
   function textureInfo(t) {
     if (!t) return null;
     const img = t.image || (t.source && t.source.data);
@@ -395,7 +401,8 @@
       }
       thumbs.set(t, thumb);
     }
-    return { text: `${t.type || "Texture"} ${w || "?"}×${h || "?"}${t.name ? " · " + t.name : ""}`, thumb };
+    const size = w && h ? ` ${w}×${h}` : "";
+    return { text: `${textureKind(t)}${size}${t.name ? " · " + t.name : ""}`, thumb };
   }
 
   function props(id) {
@@ -427,10 +434,15 @@
     if (o.isScene) {
       const s = [];
       if (o.background && o.background.isColor) s.push(f("background", "background", "color", colorHex(o.background)));
-      else s.push(f(null, "background", "text", o.background ? o.background.type || "Texture" : "none"));
+      else if (o.background && o.background.isTexture) {
+        const t = textureInfo(o.background);
+        s.push(f(null, "background", "texture", t.text, { thumb: t.thumb }));
+      } else s.push(f(null, "background", "text", "none"));
       if ("backgroundIntensity" in o) s.push(f("backgroundIntensity", "backgroundIntensity", "number", o.backgroundIntensity, { step: 0.1 }));
       if ("backgroundBlurriness" in o) s.push(f("backgroundBlurriness", "backgroundBlurriness", "number", o.backgroundBlurriness, { min: 0, max: 1, step: 0.05 }));
-      s.push(f(null, "environment", "text", o.environment ? o.environment.type || "Texture" : "none"));
+      const env = o.environment && o.environment.isTexture ? textureInfo(o.environment) : null;
+      s.push(env ? f(null, "environment", "texture", env.text, { thumb: env.thumb }) : f(null, "environment", "text", "none"));
+      if (typeof o.environmentIntensity === "number") s.push(f("environmentIntensity", "environmentIntensity", "number", o.environmentIntensity, { min: 0, max: 5, step: 0.05 }));
       if (o.fog) {
         s.push(f("fog.color", "fog color", "color", colorHex(o.fog.color)));
         if ("near" in o.fog) s.push(f("fog.near", "fog near", "number", o.fog.near), f("fog.far", "fog far", "number", o.fog.far));
@@ -540,7 +552,8 @@
       if (c) s.push(f(null, "canvas", "text", `${c.width}×${c.height} (pixel ratio ${r.getPixelRatio ? r.getPixelRatio() : "?"})`));
     } catch (_) {}
     if (typeof r.toneMappingExposure === "number") s.push(f("@renderer.toneMappingExposure", "toneMappingExposure", "number", r.toneMappingExposure, { step: 0.05 }));
-    if ("toneMapping" in r) s.push(f(null, "toneMapping", "text", String(r.toneMapping)));
+    if (typeof r.toneMapping === "number")
+      s.push(f("@renderer.toneMapping", "toneMapping", "enum", r.toneMapping, { options: ["None", "Linear", "Reinhard", "Cineon", "ACESFilmic", "Custom", "AgX", "Neutral"] }));
     if (r.outputColorSpace) s.push(f(null, "outputColorSpace", "text", r.outputColorSpace));
     if (r.shadowMap) s.push(f("@renderer.shadowMap.enabled", "shadows", "bool", !!r.shadowMap.enabled));
     const info = r.info || {};
@@ -581,7 +594,7 @@
 
     if (target.isMaterial && /^(flatShading|side|transparent|vertexColors|alphaTest|fog|wireframe)$/.test(key)) target.needsUpdate = true;
     if (o.isCamera && /^(fov|near|far|zoom)$/.test(key) && o.updateProjectionMatrix) o.updateProjectionMatrix();
-    if (target.shadowMap && key === "enabled") {
+    if ((target.shadowMap && key === "enabled") || key === "toneMapping") {
       root && traverse(root, (x) => x.material && [].concat(x.material).forEach((m) => (m.needsUpdate = true)));
     }
     redrawSoon(root);

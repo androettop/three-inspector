@@ -315,6 +315,7 @@ async function applyField(el) {
   for (const twin of el.parentElement.querySelectorAll(`[data-path="${CSS.escape(el.dataset.path)}"]`))
     if (twin !== el && el.dataset.type === "number") twin.value = value;
   await bridge.call(frameURL(frameKey), "set", selected, el.dataset.path, value).catch(() => {});
+  refreshPreviewSoon();
   if (el.dataset.path === "visible" || el.dataset.path === "name") {
     const n = findNode(selected);
     if (n) n[el.dataset.path] = value;
@@ -358,7 +359,7 @@ async function fetchGeometry(id, visibleOnly) {
   }
 }
 
-async function loadPreview(force) {
+async function loadPreview(force, keepCamera) {
   const id = selected;
   const visibleOnly = $("visibleOnly").checked;
   const n = findNode(id);
@@ -380,13 +381,15 @@ if (window.panelShown) dispatchEvent(new Event("panel-shown"));
     return updateExportInfo();
 if (window.panelShown) dispatchEvent(new Event("panel-shown"));
   }
-  showPreviewMsg("Loading…");
-  $("previewInfo").textContent = "";
+  if (!keepCamera) {
+    showPreviewMsg("Loading…");
+    $("previewInfo").textContent = "";
+  }
   try {
     const data = await fetchGeometry(id, visibleOnly);
     if (seq !== loadSeq) return;
     loaded = { frame: frameKey, id, visibleOnly, ...data };
-    viewer.show(data.parts);
+    viewer.show(data.parts, keepCamera);
     const tris = data.parts.reduce((s, p) => s + p.tris.length / 9, 0);
     $("previewInfo").textContent = `${data.parts.length} mesh${data.parts.length === 1 ? "" : "es"} · ${fmt(tris)} triangles` +
       (data.skipped.length ? ` · no CPU data: ${data.skipped.length}` : "");
@@ -396,6 +399,16 @@ if (window.panelShown) dispatchEvent(new Event("panel-shown"));
   }
   updateExportInfo();
 if (window.panelShown) dispatchEvent(new Event("panel-shown"));
+}
+
+// Edits can change what the preview shows (colors, morph targets, transforms
+// inside a group): reload small previews shortly after the last edit.
+let previewTimer = 0;
+function refreshPreviewSoon() {
+  clearTimeout(previewTimer);
+  const n = findNode(selected);
+  if (!n || subtreeTris(n) > 300_000) return;
+  previewTimer = setTimeout(() => loadPreview(false, true), 350);
 }
 
 function subtreeTris(n) {
@@ -440,6 +453,8 @@ function updateExportInfo() {
 }
 
 for (const id of ["scale", "zUp"]) $(id).addEventListener("input", updateExportInfo);
+$("exportBox").open = localStorage.getItem("exportOpen") === "1";
+$("exportBox").addEventListener("toggle", () => localStorage.setItem("exportOpen", $("exportBox").open ? "1" : "0"));
 document.querySelector(".chips").addEventListener("click", (e) => {
   const b = e.target.closest("button");
   if (!b) return;

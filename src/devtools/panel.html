@@ -29,17 +29,15 @@
       </div>
       <div id="previewMsg" class="overlay" hidden></div>
     </div>
-    <div class="export">
-      <div class="row">
-        <b>Export selection</b>
-        <span class="muted" id="exportSize"></span>
-      </div>
+    <details class="export" id="exportBox">
+      <summary><b>Export</b></summary>
+      <div class="row muted" id="exportSize"></div>
       <div class="row">
         <label>Scale <input type="number" id="scale" value="1000" step="any" min="0"> mm per unit</label>
         <span class="chips"><button data-scale="1">1</button><button data-scale="10">10</button><button data-scale="1000">1000</button><button data-fit="100">fit 100 mm</button></span>
       </div>
       <div class="row">
-        <label><input type="checkbox" id="zUp" checked> Z up (slicers)</label>
+        <label><input type="checkbox" id="zUp" checked> Z up</label>
         <label><input type="checkbox" id="separate" checked> 3MF: one object per mesh</label>
       </div>
       <div class="row">
@@ -47,7 +45,7 @@
         <button class="primary" data-export="3mf">Export 3MF</button>
         <span class="muted" id="exportMsg"></span>
       </div>
-    </div>
+    </details>
   </section>
   <section class="props-pane">
     <div id="props" class="props"><p class="muted pad">Select an object in the tree.</p></div>

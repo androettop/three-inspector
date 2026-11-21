@@ -1,7 +1,7 @@
 // STL and 3MF writers. Each part is { name, color, tris } where tris is a
 // Float32Array world-space triangle soup (9 floats per triangle).
 
-// three.js is Y-up; slicers are Z-up: rotate +90° about X → (x, -z, y).
+// Optional Y-up → Z-up conversion: rotate +90° about X → (x, -z, y).
 export function transform(tris, scale, zUp) {
   const out = new Float32Array(tris.length);
   for (let i = 0; i < tris.length; i += 3) {

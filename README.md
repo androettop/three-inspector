@@ -1,6 +1,6 @@
 # Three Inspector
 
-A DevTools panel for [three.js](https://threejs.org). It finds the scenes on any page — even when three.js is bundled, minified and never exposed as `window.THREE` — and lets you:
+A DevTools panel for [three.js](https://threejs.org). It finds the scenes on any page that uses three.js and lets you:
 
 - browse the scene graph, filter it and toggle visibility;
 - inspect and edit objects live: transforms, materials, lights, cameras, morph targets, fog, renderer exposure and shadows;
@@ -40,7 +40,7 @@ Frames without a `<canvas>` are never patched, and if nothing shows up within tw
 - World-space geometry from `BufferGeometry` (indexed or not, draw ranges, interleaved and normalized/quantized attributes) and legacy `Geometry` (< r125).
 - Morph targets, skinned meshes (current pose), instanced meshes, and mirrored transforms (winding is fixed).
 - Binary STL (everything merged) or 3MF (one object per mesh with its base color, or a single object).
-- Optional Y-up → Z-up conversion for slicers.
+- Optional Y-up → Z-up conversion.
 
 Not supported: meshes whose vertex arrays were freed after upload to the GPU (reported as having no CPU data), `BatchedMesh`, vertex displacement done in shaders, and three.js running in a worker with `OffscreenCanvas`.
 
@@ -58,6 +58,8 @@ npm run serve &       # serves on 127.0.0.1:8701 and :8702 (cross-origin iframe)
 npm test              # or: node run.cjs https://threejs.org/examples/webgl_loader_gltf.html
 python3 check.py      # validates the exported files (needs trimesh)
 ```
+
+`node screenshots.cjs` regenerates the store screenshots in `store/screenshots` from a demo scene, and `scripts/package.sh` builds the zip to upload. The store listing texts are in [`store/listing.md`](store/listing.md).
 
 Set `CHROMIUM_PATH` to use a specific Chromium build and `DOCK=bottom` to dock DevTools at the bottom. The test pages cover:
 

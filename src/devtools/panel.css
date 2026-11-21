@@ -50,13 +50,16 @@ section { min-width: 0; min-height: 0; display: flex; flex-direction: column; }
 .k-camera { color: #b083f0; } .k-bone { color: #9aa0a6; } .k-points, .k-line, .k-sprite { color: #3fb68b; }
 
 .center { min-width: 0; }
-.preview { position: relative; flex: 1; min-height: 120px; display: flex; flex-direction: column; }
-.viewer { flex: 1; min-height: 0; overflow: hidden; }
+.preview { position: relative; flex: 1; min-width: 0; min-height: 120px; display: flex; flex-direction: column; overflow: hidden; }
+.viewer { flex: 1; min-height: 0; min-width: 0; overflow: hidden; position: relative; }
+.viewer canvas { position: absolute; inset: 0; }
 .viewer canvas { display: block; }
 .viewer-bar { display: flex; gap: 10px; align-items: center; padding: 4px 8px; border-top: 1px solid var(--line); background: var(--bg2); flex-wrap: wrap; }
 .overlay { position: absolute; inset: 0 0 30px 0; display: flex; align-items: center; justify-content: center; text-align: center; padding: 20px; color: var(--muted); }
 .overlay button { margin-top: 8px; }
-.export { border-top: 1px solid var(--line); padding: 8px; display: grid; gap: 6px; flex: none; }
+.export { border-top: 1px solid var(--line); padding: 6px 8px; flex: none; }
+.export[open] { display: grid; gap: 6px; }
+.export summary { cursor: pointer; user-select: none; }
 .export .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 .export input[type=number] { width: 80px; }
 .chips { display: inline-flex; gap: 4px; }
@@ -84,20 +87,10 @@ section { min-width: 0; min-height: 0; display: flex; flex-direction: column; }
    tree and properties side by side below. */
 @media (max-width: 900px) {
   main { grid-template-columns: minmax(160px, 42%) 1fr; grid-template-rows: minmax(200px, 42%) 1fr; }
-  .center { grid-column: 1 / -1; grid-row: 1; flex-direction: row; border-bottom: 1px solid var(--line); }
-  .preview { min-width: 0; }
-  .export { width: 250px; flex: none; border-top: none; border-left: 1px solid var(--line); overflow: auto; align-content: start; }
+  .center { grid-column: 1 / -1; grid-row: 1; border-bottom: 1px solid var(--line); }
   .tree-pane { grid-row: 2; }
   .props-pane { grid-row: 2; }
 }
-@media (max-width: 560px) {
-  .export { width: 190px; }
-}
 .chips { flex-wrap: wrap; }
 .chips button { white-space: nowrap; }
-
-/* Short (DevTools docked at the bottom): export next to the preview. */
-@media (max-height: 520px) and (min-width: 901px) {
-  .center { flex-direction: row; }
-  .export { width: 300px; border-top: none; border-left: 1px solid var(--line); overflow: auto; align-content: start; }
-}
+.export[open] { max-height: 50%; overflow: auto; }

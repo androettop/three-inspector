@@ -3,16 +3,13 @@
 // property, exports STL + 3MF and checks that every patch was removed.
 //
 //   node run.cjs [page,page,...|url]
-const { chromium } = require("playwright-core");
-const { spawn } = require("child_process");
-const fs = require("fs"), path = require("path"), os = require("os");
+const fs = require("fs"), path = require("path");
+const { launch, waitFor, sleep } = require("./lib.cjs");
 
-const EXT = path.join(__dirname, "..");
 const OUT = path.join(__dirname, "out");
 const PAGES = (process.argv[2] || "a-loop,b-ondemand,c-old,f-host,e-webgpu").split(",");
 const pageURL = (n) => (/^https?:/.test(n) ? n : `http://127.0.0.1:8701/${n}.html`);
 const slug = (n) => n.replace(/^https?:\/\//, "").replace(/[^\w.-]+/g, "_").slice(0, 60);
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // Pages that only render on input.
 const interact = {
@@ -21,79 +18,10 @@ const interact = {
   "f-host": async (p) => { await p.mouse.move(300, 300); await p.mouse.move(350, 320, { steps: 5 }); },
 };
 
-/* Minimal CDP client (flattened sessions) */
-class CDP {
-  constructor(url) {
-    this.ws = new WebSocket(url);
-    this.id = 0;
-    this.pending = new Map();
-    this.ws.onmessage = (e) => {
-      const m = JSON.parse(e.data);
-      const p = m.id && this.pending.get(m.id);
-      if (!p) return;
-      this.pending.delete(m.id);
-      m.error ? p.reject(new Error(m.error.message)) : p.resolve(m.result);
-    };
-    this.ready = new Promise((r) => (this.ws.onopen = r));
-  }
-  send(method, params = {}, sessionId) {
-    const id = ++this.id;
-    this.ws.send(JSON.stringify({ id, method, params, sessionId }));
-    return new Promise((resolve, reject) => this.pending.set(id, { resolve, reject }));
-  }
-  async attach(targetId) {
-    const { sessionId } = await this.send("Target.attachToTarget", { targetId, flatten: true });
-    return {
-      shot: async (file) => {
-        const { data } = await this.send("Page.captureScreenshot", { format: "png" }, sessionId);
-        fs.writeFileSync(file, Buffer.from(data, "base64"));
-      },
-      eval: async (expression) => {
-        const r = await this.send("Runtime.evaluate", { expression, awaitPromise: true, returnByValue: true }, sessionId);
-        if (r.exceptionDetails) throw new Error(r.exceptionDetails.exception?.description || r.exceptionDetails.text);
-        return r.result.value;
-      },
-    };
-  }
-  async target(match, timeout = 15000) {
-    for (const end = Date.now() + timeout; Date.now() < end; await sleep(200)) {
-      const { targetInfos } = await this.send("Target.getTargets");
-      const t = targetInfos.find(match);
-      if (t) return t;
-    }
-    throw new Error("target not found");
-  }
-}
-
-async function waitFor(fn, timeout = 15000, label = "condition") {
-  for (const end = Date.now() + timeout; Date.now() < end; await sleep(250)) {
-    const v = await fn().catch(() => null);
-    if (v) return v;
-  }
-  throw new Error("timeout waiting for " + label);
-}
-
 (async () => {
   fs.mkdirSync(OUT, { recursive: true });
-  const profile = fs.mkdtempSync(path.join(os.tmpdir(), "three-inspector-"));
-  const exe = process.env.CHROMIUM_PATH || chromium.executablePath();
-  const proc = spawn(exe, [
-    "--headless=new", "--remote-debugging-port=0", `--user-data-dir=${profile}`, "--no-first-run",
-    `--disable-extensions-except=${EXT}`, `--load-extension=${EXT}`, "--auto-open-devtools-for-tabs",
-    "--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--window-size=1400,1000", "about:blank",
-  ]);
-  const wsURL = await new Promise((resolve, reject) => {
-    let buf = "";
-    proc.stderr.on("data", (d) => {
-      buf += d;
-      const m = /DevTools listening on (ws:\/\/\S+)/.exec(buf);
-      if (m) resolve(m[1]);
-    });
-    proc.on("exit", () => reject(new Error("browser exited:\n" + buf)));
-  });
-  const cdp = new CDP(wsURL);
-  await cdp.ready;
-  const pw = await chromium.connectOverCDP(wsURL);
+  const browser = await launch();
+  const { cdp } = browser;
   let failures = 0;
 
   for (const name of PAGES) {
@@ -103,30 +31,18 @@ async function waitFor(fn, timeout = 15000, label = "condition") {
     fs.rmSync(dir, { recursive: true, force: true });
     fs.mkdirSync(dir, { recursive: true });
     await cdp.send("Browser.setDownloadBehavior", { behavior: "allow", downloadPath: dir });
+    let tab = null;
     try {
-      const { targetId } = await cdp.send("Target.createTarget", { url });
-      const page = await waitFor(async () => pw.contexts()[0].pages().find((p) => p.url() === url), 10000, "page");
-      if (/^https?:\/\/127/.test(url)) await page.waitForFunction(() => document.title === "loaded" || document.querySelector("iframe"), null, { timeout: 20000 });
-      else await page.waitForTimeout(5000);
-      await page.waitForTimeout(1000);
-
-      // The DevTools window opened for this tab, then the "Three" tab in it.
-      const dtTarget = await cdp.target((t) => t.type === "page" && t.url.startsWith("devtools://") && !t.attachedTo && t.title.includes(new URL(url).host));
-      const dt = await cdp.attach(dtTarget.targetId);
-      // Extension panels may sit in the overflow menu; open it through the
-      // DevTools frontend's own view manager.
-      await waitFor(() => dt.eval(`(async () => {
-        const UI = await import("./ui/legacy/legacy.js");
-        const pane = UI.InspectorView.InspectorView.instance().tabbedPane;
-        const id = pane.tabIds().find((t) => t.endsWith("Three"));
-        if (!id) return false;
-        await UI.InspectorView.InspectorView.instance().showPanel(id);
-        if (${JSON.stringify(process.env.DOCK || "")}) UI.DockController.DockController.instance().setDockSide(${JSON.stringify(process.env.DOCK || "")});
-        return true; })()`), 15000, "Three tab");
-      const panelTarget = await cdp.target((t) => t.url.includes("/src/devtools/panel.html"));
-      const panel = await cdp.attach(panelTarget.targetId);
-      const text = (sel) => panel.eval(`document.querySelector(${JSON.stringify(sel)})?.innerText ?? ""`);
-
+      tab = await browser.open(url, {
+        dock: process.env.DOCK,
+        ready: async (page) => {
+          if (/^https?:\/\/127/.test(url)) await page.waitForFunction(() => document.title === "loaded" || document.querySelector("iframe"), null, { timeout: 20000 });
+          else await page.waitForTimeout(5000);
+          await page.waitForTimeout(1000);
+        },
+      });
+      const { page, dt, panel } = tab;
+      const text = panel.text;
       await sleep(1500);
       console.log("before interaction:", await text("#status"));
       if (interact[name]) await interact[name](page);
@@ -170,15 +86,15 @@ async function waitFor(fn, timeout = 15000, label = "condition") {
       await panel.eval(`[...document.querySelectorAll(".node")].find((n) => /icon k-(mesh|skinned)/.test(n.innerHTML) && /k\\b|M/.test(n.querySelector(".tris").textContent))?.click()`);
       await sleep(2500);
       await dt.shot(path.join(OUT, `${slug(name)}-devtools${process.env.DOCK ? "-" + process.env.DOCK : ""}.png`));
-      await cdp.send("Target.closeTarget", { targetId });
     } catch (err) {
       failures++;
       console.log("FAILED:", err.message);
+    } finally {
+      if (tab) await tab.close().catch(() => {});
     }
   }
   await sleep(1000);
-  await pw.close().catch(() => {});
-  proc.kill();
+  await browser.close();
   process.exit(failures ? 1 : 0);
 })().catch((e) => {
   console.error(e);

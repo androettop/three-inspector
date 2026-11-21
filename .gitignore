@@ -3,3 +3,4 @@ test/out/
 test/site/*.js
 test/site/models/
 test/look.py
+dist/
