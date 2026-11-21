@@ -1,6 +1,6 @@
 # Three Inspector
 
-A Chrome DevTools panel for [three.js](https://threejs.org): browse the scene graph and tweak objects, materials and lights while the scene runs.
+A DevTools panel for [three.js](https://threejs.org), for Chrome and Firefox: browse the scene graph and tweak objects, materials and lights while the scene runs.
 
 ![Editing a material live](store/screenshots/2-materials.png)
 
@@ -12,7 +12,7 @@ A Chrome DevTools panel for [three.js](https://threejs.org): browse the scene gr
 - **Preview**: any object or group on its own, with a wireframe mode.
 - **Export**: the selection as STL or 3MF.
 
-Works with three.js r110 and later, with `WebGLRenderer` and `WebGPURenderer`, and with scenes inside iframes.
+Works with three.js r110 and later, with `WebGLRenderer` and `WebGPURenderer`, and with scenes inside iframes (in Firefox, only iframes from the same origin as the page).
 
 <table>
   <tr>
@@ -27,9 +27,9 @@ Works with three.js r110 and later, with `WebGLRenderer` and `WebGPURenderer`, a
 
 ## Install
 
-1. Clone this repository.
-2. Open `chrome://extensions`, turn on **Developer mode** and click **Load unpacked**.
-3. Pick the repository folder.
+**Chrome**: open `chrome://extensions`, turn on **Developer mode**, click **Load unpacked** and pick the repository folder.
+
+**Firefox**: open `about:debugging#/runtime/this-firefox`, click **Load Temporary Add-on…** and pick `manifest.json`.
 
 ## Usage
 
@@ -50,11 +50,12 @@ cd test
 npm install
 npm run build          # test pages + sample models
 npm run serve &        # 127.0.0.1:8701 and :8702
-npm test               # drives the real DevTools panel on every test page
+npm test               # drives the real DevTools panel in Chrome
+node firefox.cjs       # same in Firefox (WebGL needs a display: set DISPLAY)
 node screenshots.cjs   # regenerates store/screenshots
 ```
 
-`scripts/package.sh` builds the zip for the Chrome Web Store. The listing texts are in [store/listing.md](store/listing.md).
+`scripts/package.sh` builds the zip for the Chrome Web Store and Firefox Add-ons. The listing texts are in [store/listing.md](store/listing.md).
 
 ## License
 

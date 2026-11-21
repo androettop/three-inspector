@@ -7,7 +7,7 @@ const fs = require("fs"), path = require("path");
 const { launch, waitFor, sleep } = require("./lib.cjs");
 
 const OUT = path.join(__dirname, "out");
-const PAGES = (process.argv[2] || "a-loop,b-ondemand,c-old,f-host,e-webgpu").split(",");
+const PAGES = (process.argv[2] || "a-loop,b-ondemand,c-old,f-host,g-samehost,e-webgpu").split(",");
 const pageURL = (n) => (/^https?:/.test(n) ? n : `http://127.0.0.1:8701/${n}.html`);
 const slug = (n) => n.replace(/^https?:\/\//, "").replace(/[^\w.-]+/g, "_").slice(0, 60);
 
@@ -15,6 +15,7 @@ const slug = (n) => n.replace(/^https?:\/\//, "").replace(/[^\w.-]+/g, "_").slic
 const interact = {
   "b-ondemand": async (p) => { await p.mouse.move(400, 300); await p.mouse.down(); await p.mouse.move(450, 320, { steps: 5 }); await p.mouse.up(); },
   "c-old": async (p) => { await p.mouse.move(400, 300); await p.mouse.wheel(0, 100); },
+  "g-samehost": async (p) => { await p.mouse.move(300, 300); await p.mouse.move(350, 320, { steps: 5 }); },
   "f-host": async (p) => { await p.mouse.move(300, 300); await p.mouse.move(350, 320, { steps: 5 }); },
 };
 
@@ -68,7 +69,7 @@ const interact = {
       await waitFor(() => panel.eval(`!!document.querySelector('[data-path="position"]')`), 10000, "props");
       await panel.eval(`(() => { const el = document.querySelector('[data-path="position"][data-i="1"]'); el.value = "0.25"; el.dispatchEvent(new Event("change", { bubbles: true })); })()`);
       await sleep(400);
-      const frameForAgent = page.frames().find((f) => f.url() === (name === "f-host" ? "http://127.0.0.1:8702/d-iframe.html" : url)) || page.mainFrame();
+      const frameForAgent = page.frames().find((f) => f.url() === (name === "f-host" ? "http://127.0.0.1:8702/d-iframe.html" : name === "g-samehost" ? "http://127.0.0.1:8701/d-iframe.html" : url)) || page.mainFrame();
       const pos = await frameForAgent.evaluate((id) => window[Symbol.for("threeInspector.agent")].props(id).sections[0].fields.find((f) => f.path === "position").value, meshId);
       console.log("edit position.y = 0.25 ->", pos[1] === 0.25 ? "applied" : "NOT applied " + pos);
 

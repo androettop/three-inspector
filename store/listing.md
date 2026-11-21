@@ -1,4 +1,8 @@
-# Chrome Web Store listing
+# Store listings
+
+The same zip (`scripts/package.sh`) is uploaded to both stores.
+
+# Chrome Web Store
 
 ## Store listing
 
@@ -25,7 +29,7 @@ FEATURES
 • Details: geometry type, attributes, index and triangle counts, texture thumbnails and sizes, userData, renderer draw calls and memory.
 • Preview: look at any object or group on its own in a separate viewer, with a wireframe mode.
 • Export: save the selection as STL or 3MF.
-• Compatibility: three.js r110 and later, WebGLRenderer and WebGPURenderer, and scenes inside iframes.
+• Compatibility: three.js r110 and later, WebGLRenderer and WebGPURenderer, and scenes inside iframes. Also available for Firefox.
 
 PRIVACY
 
@@ -67,6 +71,35 @@ Inspect and edit the three.js scenes of the page being debugged, from a Chrome D
 **Data usage:** the extension does not collect any of the listed data types. Certify the three disclosures (no selling, no unrelated use, no creditworthiness).
 
 **Privacy policy URL:** https://github.com/androettop/three-inspector/blob/main/PRIVACY.md (once the repository is public)
+
+# Firefox Add-ons (AMO)
+
+**Name:** Three Inspector
+
+**Add-on URL:** `three-inspector`
+
+**Summary** (max 250 characters):
+Inspect three.js scenes in DevTools: browse the scene graph and tweak objects, materials and lights live.
+
+**Description:** same as the Chrome Web Store, with this compatibility line instead:
+
+```
+• Compatibility: three.js r110 and later, WebGLRenderer and WebGPURenderer, and scenes inside same-origin iframes (Firefox doesn't let extensions inspect cross-origin iframes).
+```
+
+**Categories:** Web Development
+
+**License:** MIT
+
+**Data collection:** none (declared in `manifest.json` under `browser_specific_settings.gecko.data_collection_permissions`).
+
+**Privacy policy:** not needed, since no data is collected. Optionally paste the text of `PRIVACY.md`.
+
+**Source code:** not needed. The package contains no minified or generated code besides three.js, which reviewers can compare with the official `three` npm release (`vendor/three` is r187, unmodified except for the import path in `OrbitControls.js`).
+
+**Screenshots:** the same five images from `store/screenshots`.
+
+`web-ext lint` reports no errors or warnings for the package.
 
 ## Package
 

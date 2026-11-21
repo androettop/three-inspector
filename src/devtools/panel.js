@@ -25,40 +25,66 @@ viewer.setTheme(bridge.theme === "dark");
 
 /* ------------------------------ frames ------------------------------- */
 
-const frameURL = (key) => key || undefined;
+const frameURL = (key) => key;
 const current = () => frames.get(frameKey);
 
+let blockedFrames = 0;
+
 async function scanFrames() {
-  let urls = [];
-  let top = "";
+  let list = [];
   try {
-    [urls, top] = await Promise.all([bridge.frames(), bridge.topURL()]);
+    list = await bridge.frames();
   } catch (_) {
+    if (bridge.broken()) location.reload();
     return;
   }
-  for (const url of [top, ...urls]) {
-    const key = url === top ? "" : url;
+  blockedFrames = list.blocked || 0;
+  for (const { key, url } of list) {
     if (frames.has(key)) continue;
-    frames.set(key, { url, status: null, tree: null, signature: null });
+    frames.set(key, { url, status: null, tree: null, signature: null, misses: 0 });
     try {
-      await bridge.inject(frameURL(key));
-      const s = await bridge.call(frameURL(key), "status");
-      if (!s || s.state === "idle" || s.state === "notfound" || s.state === "nocanvas") await bridge.call(frameURL(key), "arm");
+      await bridge.inject(key);
+      const s = await bridge.call(key, "status");
+      if (!s || s.state === "idle" || s.state === "notfound" || s.state === "nocanvas") await bridge.call(key, "arm");
     } catch (_) {
       frames.delete(key);
     }
   }
 }
 
+// One polling loop at a time; it always reschedules itself, even after an
+// error, while the panel is visible.
+let polling = false;
 async function poll() {
+  if (polling) return;
+  polling = true;
   clearTimeout(pollTimer);
-  if (!visible) return;
+  try {
+    if (visible) await pollOnce();
+  } catch (err) {
+    console.warn("Three Inspector:", err);
+  } finally {
+    polling = false;
+    clearTimeout(pollTimer);
+    if (visible) pollTimer = setTimeout(poll, POLL_MS);
+  }
+}
+
+async function pollOnce() {
   for (const [key, f] of frames) {
     try {
       f.status = await bridge.call(frameURL(key), "status");
     } catch (_) {
       f.status = null;
     }
+    // No agent there any more (the document was replaced, or the agent was
+    // injected into the outgoing one during a navigation): inject again.
+    if (!f.status && ++f.misses >= 2) {
+      frames.delete(key);
+      scanFrames();
+      continue;
+    }
+    if (f.status) f.misses = 0;
     if (f.status && f.status.state === "found" && f.status.signature !== f.signature) {
       f.signature = f.status.signature;
       f.tree = await bridge.call(frameURL(key), "tree").catch(() => null);
@@ -72,8 +98,9 @@ async function poll() {
   pickFrame();
   renderStatus();
   if (selected) await refreshProps();
-  pollTimer = setTimeout(poll, POLL_MS);
 }
+
+let frameOptions = "";
 
 // Prefer a frame that actually has a scene.
 function pickFrame() {
@@ -85,8 +112,8 @@ function pickFrame() {
   }
   const sel = $("frame");
   sel.hidden = withScene.length < 2;
-  const html = withScene.map((k) => `<option value="${esc(k)}" ${k === frameKey ? "selected" : ""}>${esc(k ? shortURL(k) : "top frame")}</option>`).join("");
-  if (sel.innerHTML !== html) sel.innerHTML = html;
+  const html = withScene.map((k) => `<option value="${esc(k)}" ${k === frameKey ? "selected" : ""}>${esc(k ? shortURL(frames.get(k).url) : "top frame")}</option>`).join("");
+  if (frameOptions !== html) setHTML(sel, (frameOptions = html));
 }
 
 function renderStatus() {
@@ -103,6 +130,9 @@ function renderStatus() {
   } else if (!frames.size || states.every((x) => !x)) {
     cls = "";
     text = "Starting…";
+  } else if (states.every((x) => x === "nocanvas") && blockedFrames) {
+    cls = "";
+    text = `This page has ${blockedFrames} cross-origin iframe${blockedFrames > 1 ? "s" : ""}, which Firefox doesn't let extensions inspect. Open the iframe's address in its own tab instead.`;
   } else if (states.every((x) => x === "nocanvas")) {
     cls = "";
     text = "No <canvas> on this page.";
@@ -145,7 +175,7 @@ function renderTree() {
   const f = current();
   const box = $("tree");
   if (!f || !f.tree) {
-    box.innerHTML = "";
+    box.replaceChildren();
     return;
   }
   const q = $("filter").value.trim().toLowerCase();
@@ -176,7 +206,7 @@ function renderTree() {
   };
   f.tree.roots.forEach((r) => walk(r, 0));
   if (f.tree.truncated) out.push(`<div class="pad muted">Showing the first ${f.tree.count} objects.</div>`);
-  box.innerHTML = out.join("");
+  setHTML(box, out.join(""));
 }
 
 $("tree").addEventListener("click", async (e) => {
@@ -225,12 +255,14 @@ function select(id) {
   lastProps = "";
   renderTree();
   if (!id) {
-    $("props").innerHTML = `<p class="muted pad">Select an object in the tree.</p>`;
+    setHTML($("props"), `<p class="muted pad">Select an object in the tree.</p>`);
     viewer.clear();
     showPreviewMsg("");
     loaded = null;
     updateExportInfo();
-if (window.panelShown) dispatchEvent(new Event("panel-shown"));
+// The page is created when the panel is first opened, so start right away.
+dispatchEvent(new Event("panel-shown"));
+document.addEventListener("visibilitychange", () => dispatchEvent(new Event(document.hidden ? "panel-hidden" : "panel-shown")));
     return;
   }
   refreshProps(true);
@@ -253,7 +285,7 @@ async function refreshProps(force) {
   if (json === lastProps) return;
   lastProps = json;
   if (!p) {
-    props$.innerHTML = `<p class="muted pad">This object is no longer in the scene.</p>`;
+    setHTML(props$, `<p class="muted pad">This object is no longer in the scene.</p>`);
     return;
   }
   const html = [`<h2>${esc(p.name || p.type)}<button id="flash" title="Blink the object in the page">Blink</button></h2>`];
@@ -261,7 +293,7 @@ async function refreshProps(force) {
     html.push(`<h3>${esc(s.title)}</h3>`);
     for (const f of s.fields) html.push(fieldHTML(f));
   }
-  props$.innerHTML = html.join("");
+  setHTML(props$, html.join(""));
 }
 
 function fieldHTML(f) {
@@ -371,7 +403,9 @@ async function loadPreview(force, keepCamera) {
     $("previewInfo").textContent = "";
     showPreviewMsg("No meshes under this object.");
     return updateExportInfo();
-if (window.panelShown) dispatchEvent(new Event("panel-shown"));
+// The page is created when the panel is first opened, so start right away.
+dispatchEvent(new Event("panel-shown"));
+document.addEventListener("visibilitychange", () => dispatchEvent(new Event(document.hidden ? "panel-hidden" : "panel-shown")));
   }
   if (total > PREVIEW_LIMIT && !force) {
     viewer.clear();
@@ -379,7 +413,9 @@ if (window.panelShown) dispatchEvent(new Event("panel-shown"));
     $("previewInfo").textContent = "";
     showPreviewMsg(`${fmt(total)} triangles.<br><button id="forcePreview">Load preview</button>`);
     return updateExportInfo();
-if (window.panelShown) dispatchEvent(new Event("panel-shown"));
+// The page is created when the panel is first opened, so start right away.
+dispatchEvent(new Event("panel-shown"));
+document.addEventListener("visibilitychange", () => dispatchEvent(new Event(document.hidden ? "panel-hidden" : "panel-shown")));
   }
   if (!keepCamera) {
     showPreviewMsg("Loading…");
@@ -398,7 +434,9 @@ if (window.panelShown) dispatchEvent(new Event("panel-shown"));
     if (seq === loadSeq) showPreviewMsg(esc(err.message));
   }
   updateExportInfo();
-if (window.panelShown) dispatchEvent(new Event("panel-shown"));
+// The page is created when the panel is first opened, so start right away.
+dispatchEvent(new Event("panel-shown"));
+document.addEventListener("visibilitychange", () => dispatchEvent(new Event(document.hidden ? "panel-hidden" : "panel-shown")));
 }
 
 // Edits can change what the preview shows (colors, morph targets, transforms
@@ -417,7 +455,7 @@ function subtreeTris(n) {
 
 function showPreviewMsg(html) {
   $("previewMsg").hidden = !html;
-  $("previewMsg").innerHTML = html;
+  setHTML($("previewMsg"), html);
 }
 
 $("previewMsg").addEventListener("click", (e) => {
@@ -464,7 +502,9 @@ document.querySelector(".chips").addEventListener("click", (e) => {
     if (size) $("scale").value = +(parseFloat(b.dataset.fit) / Math.max(...size)).toPrecision(6);
   }
   updateExportInfo();
-if (window.panelShown) dispatchEvent(new Event("panel-shown"));
+// The page is created when the panel is first opened, so start right away.
+dispatchEvent(new Event("panel-shown"));
+document.addEventListener("visibilitychange", () => dispatchEvent(new Event(document.hidden ? "panel-hidden" : "panel-shown")));
 });
 
 document.querySelector(".export").addEventListener("click", async (e) => {
@@ -509,6 +549,13 @@ function download(buffer, filename, type) {
 }
 
 /* ------------------------------ wiring ------------------------------- */
+
+// Puts markup built by this panel into `el`. Every value that comes from the
+// inspected page goes through esc() first.
+function setHTML(el, html) {
+  const doc = new DOMParser().parseFromString(`<!doctype html><body>${html}`, "text/html");
+  el.replaceChildren(...doc.body.childNodes);
+}
 
 function esc(s) {
   return String(s ?? "").replace(/[<>&"]/g, (c) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;", '"': "&quot;" })[c]);
@@ -560,4 +607,7 @@ bridge.onNavigated(async () => {
 // re-list frames now and then while the panel is open.
 setInterval(() => visible && scanFrames(), 3000);
 updateExportInfo();
-if (window.panelShown) dispatchEvent(new Event("panel-shown"));
+// The page is created when the panel is first opened, so start right away.
+dispatchEvent(new Event("panel-shown"));
+document.addEventListener("visibilitychange", () => dispatchEvent(new Event(document.hidden ? "panel-hidden" : "panel-shown")));
+

@@ -248,7 +248,11 @@
       if (v && !views.has(top)) views.set(top, v);
     }
     if ([...roots].some((r) => r.isScene))
-      for (const r of [...roots]) if (!r.isScene && r.isMesh && !(r.children && r.children.length)) roots.delete(r);
+      for (const r of [...roots])
+        if (!r.isScene && r.isMesh && !(r.children && r.children.length)) {
+          roots.delete(r);
+          views.delete(r);
+        }
   }
 
   function status() {
@@ -268,7 +272,7 @@
       roots: roots.size,
       objects,
       signature,
-      renderers: views.size,
+      renderers: new Set([...roots].map((r) => views.get(r) && views.get(r).renderer).filter(Boolean)).size,
       patched: !!restore,
     };
   }
