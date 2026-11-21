@@ -1,0 +1,103 @@
+:root {
+  --bg: #fff; --bg2: #f1f3f4; --line: #d0d3d7; --fg: #1f1f1f; --muted: #6b6f76;
+  --sel: #cfe3ff; --accent: #1a73e8; --input: #fff;
+  color-scheme: light;
+}
+body.dark {
+  --bg: #202124; --bg2: #292a2d; --line: #3c4043; --fg: #e3e3e3; --muted: #9aa0a6;
+  --sel: #2b4466; --accent: #7cacf8; --input: #1b1b1d;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body { font: 12px/1.4 system-ui, sans-serif; background: var(--bg); color: var(--fg); display: flex; flex-direction: column; }
+button { font: inherit; color: inherit; background: var(--bg2); border: 1px solid var(--line); border-radius: 4px; padding: 2px 8px; cursor: pointer; }
+button:hover { border-color: var(--accent); }
+button.primary { background: var(--accent); color: #fff; border-color: var(--accent); font-weight: 600; }
+body.dark button.primary { color: #111; }
+button:disabled { opacity: .5; cursor: default; }
+input, select { font: inherit; color: inherit; background: var(--input); border: 1px solid var(--line); border-radius: 3px; padding: 1px 4px; }
+input[type=checkbox] { vertical-align: -2px; }
+.muted { color: var(--muted); }
+.pad { padding: 8px 10px; }
+
+.toolbar { display: flex; align-items: center; gap: 8px; padding: 4px 8px; border-bottom: 1px solid var(--line); background: var(--bg2); flex: none; }
+.toolbar .spacer { flex: 1; }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); flex: none; }
+.dot.searching { background: #f5b942; animation: pulse 1s infinite alternate; }
+.dot.found { background: #34a853; }
+@keyframes pulse { to { opacity: .25; } }
+
+main { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(200px, 22%) 1fr minmax(260px, 28%); }
+section { min-width: 0; min-height: 0; display: flex; flex-direction: column; }
+.tree-pane { border-right: 1px solid var(--line); }
+.props-pane { border-left: 1px solid var(--line); }
+#filter { margin: 6px; }
+
+.tree { overflow: auto; flex: 1; padding-bottom: 8px; }
+.node { display: flex; align-items: center; gap: 4px; padding: 1px 6px 1px 0; white-space: nowrap; cursor: default; }
+.node:hover { background: var(--bg2); }
+.node.selected { background: var(--sel); }
+.node .caret { width: 14px; text-align: center; color: var(--muted); cursor: pointer; flex: none; }
+.node .icon { width: 14px; text-align: center; flex: none; }
+.node .name { overflow: hidden; text-overflow: ellipsis; }
+.node .type { color: var(--muted); }
+.node.hidden .name, .node.hidden .icon { opacity: .45; }
+.node .tris { margin-left: auto; color: var(--muted); padding-left: 8px; }
+.node .eye { opacity: 0; cursor: pointer; padding: 0 2px; }
+.node:hover .eye, .node.hidden .eye { opacity: .8; }
+.k-scene { color: #e8a33d; } .k-mesh, .k-instanced, .k-skinned { color: #4f8ef7; } .k-light { color: #f2c94c; }
+.k-camera { color: #b083f0; } .k-bone { color: #9aa0a6; } .k-points, .k-line, .k-sprite { color: #3fb68b; }
+
+.center { min-width: 0; }
+.preview { position: relative; flex: 1; min-height: 120px; display: flex; flex-direction: column; }
+.viewer { flex: 1; min-height: 0; overflow: hidden; }
+.viewer canvas { display: block; }
+.viewer-bar { display: flex; gap: 10px; align-items: center; padding: 4px 8px; border-top: 1px solid var(--line); background: var(--bg2); flex-wrap: wrap; }
+.overlay { position: absolute; inset: 0 0 30px 0; display: flex; align-items: center; justify-content: center; text-align: center; padding: 20px; color: var(--muted); }
+.overlay button { margin-top: 8px; }
+.export { border-top: 1px solid var(--line); padding: 8px; display: grid; gap: 6px; flex: none; }
+.export .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.export input[type=number] { width: 80px; }
+.chips { display: inline-flex; gap: 4px; }
+.chips button { padding: 0 6px; }
+
+.props { overflow: auto; flex: 1; }
+.props h3 { margin: 0; padding: 5px 8px; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); background: var(--bg2); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.props h2 { margin: 0; padding: 8px; font-size: 13px; display: flex; gap: 8px; align-items: center; }
+.props h2 button { margin-left: auto; }
+.field { display: grid; grid-template-columns: 38% 1fr; gap: 6px; padding: 2px 8px; align-items: center; }
+.field > span { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.field .val { min-width: 0; display: flex; gap: 4px; align-items: center; }
+.field .val input[type=text], .field .val input[type=number], .field .val select { width: 100%; min-width: 0; }
+.field .val input[type=range] { flex: 1; min-width: 0; }
+.field .val input.num { width: 70px; flex: none; }
+.field .val .text { white-space: pre-wrap; word-break: break-word; }
+.field .val img { max-width: 48px; max-height: 48px; border: 1px solid var(--line); background: repeating-conic-gradient(#8884 0 25%, transparent 0 50%) 0 0 / 8px 8px; }
+.field input[type=color] { width: 44px; height: 20px; padding: 0 2px; }
+
+/* Wide: tree | preview + export | properties */
+.field .val input.num { flex: 1 1 0; width: auto; min-width: 0; }
+.field .val input[type=range] + input.num { flex: 0 0 64px; }
+
+/* Narrow (DevTools docked to the side): preview + export on top,
+   tree and properties side by side below. */
+@media (max-width: 900px) {
+  main { grid-template-columns: minmax(160px, 42%) 1fr; grid-template-rows: minmax(200px, 42%) 1fr; }
+  .center { grid-column: 1 / -1; grid-row: 1; flex-direction: row; border-bottom: 1px solid var(--line); }
+  .preview { min-width: 0; }
+  .export { width: 250px; flex: none; border-top: none; border-left: 1px solid var(--line); overflow: auto; align-content: start; }
+  .tree-pane { grid-row: 2; }
+  .props-pane { grid-row: 2; }
+}
+@media (max-width: 560px) {
+  .export { width: 190px; }
+}
+.chips { flex-wrap: wrap; }
+.chips button { white-space: nowrap; }
+
+/* Short (DevTools docked at the bottom): export next to the preview. */
+@media (max-height: 520px) and (min-width: 901px) {
+  .center { flex-direction: row; }
+  .export { width: 300px; border-top: none; border-left: 1px solid var(--line); overflow: auto; align-content: start; }
+}

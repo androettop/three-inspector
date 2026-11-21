@@ -1,0 +1,58 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="panel.css">
+</head>
+<body>
+<header class="toolbar">
+  <span class="dot" id="dot"></span>
+  <span id="status">Starting…</span>
+  <select id="frame" hidden></select>
+  <span class="spacer"></span>
+  <span class="muted" id="meta"></span>
+  <button id="rescan" title="Search for scenes again">⟳ Rescan</button>
+</header>
+<main>
+  <section class="tree-pane">
+    <input id="filter" type="search" placeholder="Filter by name or type">
+    <div id="tree" class="tree"></div>
+  </section>
+  <section class="center">
+    <div class="preview">
+      <div id="viewer" class="viewer"></div>
+      <div class="viewer-bar">
+        <label><input type="checkbox" id="wireframe"> Wireframe</label>
+        <label><input type="checkbox" id="visibleOnly" checked> Visible only</label>
+        <button id="reload" title="Reload the preview from the page">⟳ Preview</button>
+        <span class="muted" id="previewInfo"></span>
+      </div>
+      <div id="previewMsg" class="overlay" hidden></div>
+    </div>
+    <div class="export">
+      <div class="row">
+        <b>Export selection</b>
+        <span class="muted" id="exportSize"></span>
+      </div>
+      <div class="row">
+        <label>Scale <input type="number" id="scale" value="1000" step="any" min="0"> mm per unit</label>
+        <span class="chips"><button data-scale="1">1</button><button data-scale="10">10</button><button data-scale="1000">1000</button><button data-fit="100">fit 100 mm</button></span>
+      </div>
+      <div class="row">
+        <label><input type="checkbox" id="zUp" checked> Z up (slicers)</label>
+        <label><input type="checkbox" id="separate" checked> 3MF: one object per mesh</label>
+      </div>
+      <div class="row">
+        <button class="primary" data-export="stl">Export STL</button>
+        <button class="primary" data-export="3mf">Export 3MF</button>
+        <span class="muted" id="exportMsg"></span>
+      </div>
+    </div>
+  </section>
+  <section class="props-pane">
+    <div id="props" class="props"><p class="muted pad">Select an object in the tree.</p></div>
+  </section>
+</main>
+<script type="module" src="panel.js"></script>
+</body>
+</html>
