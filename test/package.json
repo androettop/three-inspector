@@ -1,0 +1,18 @@
+{
+  "name": "three-inspector-tests",
+  "private": true,
+  "description": "End-to-end tests for the Three Inspector extension",
+  "scripts": {
+    "build": "npm run -s models && for f in a-loop b-ondemand c-old d-iframe e-webgpu; do esbuild src/$f.js --bundle --minify --format=iife --outfile=site/$f.js --log-level=warning; done",
+    "serve": "node serve.cjs",
+    "test": "node run.cjs",
+    "models": "mkdir -p site/models && curl -sSLo site/models/Fox.glb https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/Fox/glTF-Binary/Fox.glb && curl -sSLo site/models/Duck.glb https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/Duck/glTF-Binary/Duck.glb"
+  },
+  "dependencies": {
+    "esbuild": "^0.28.2",
+    "playwright-core": "^1.65.1",
+    "three": "^0.187.0",
+    "three110": "npm:three@^0.110.0",
+    "three130": "npm:three@^0.130.0"
+  }
+}
