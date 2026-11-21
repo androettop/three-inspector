@@ -1,73 +1,60 @@
 # Three Inspector
 
-A DevTools panel for [three.js](https://threejs.org). It finds the scenes on any page that uses three.js and lets you:
+A Chrome DevTools panel for [three.js](https://threejs.org): browse the scene graph and tweak objects, materials and lights while the scene runs.
 
-- browse the scene graph, filter it and toggle visibility;
-- inspect and edit objects live: transforms, materials, lights, cameras, morph targets, fog, renderer exposure and shadows;
-- see geometry details, texture thumbnails, `userData` and renderer stats;
-- preview any object or subtree in a separate viewer;
-- export a selection to **STL** or **3MF**.
+![Editing a material live](store/screenshots/2-materials.png)
+
+## Features
+
+- **Scene graph**: every object in the scene, with a filter, visibility toggles and a blink to find objects on the page.
+- **Live editing**: transforms, materials, lights, cameras, morph targets, background, fog, tone mapping, exposure and shadows.
+- **Details**: geometry attributes and triangle counts, texture thumbnails, `userData` and renderer stats.
+- **Preview**: any object or group on its own, with a wireframe mode.
+- **Export**: the selection as STL or 3MF.
+
+Works with three.js r110 and later, with `WebGLRenderer` and `WebGPURenderer`, and with scenes inside iframes.
+
+<table>
+  <tr>
+    <td><img src="store/screenshots/3-morph-targets.png" alt="Morph targets"></td>
+    <td><img src="store/screenshots/4-lights.png" alt="Lights"></td>
+  </tr>
+  <tr>
+    <td align="center">Morph targets</td>
+    <td align="center">Lights</td>
+  </tr>
+</table>
 
 ## Install
 
 1. Clone this repository.
-2. Open `chrome://extensions`, enable **Developer mode** and click **Load unpacked**.
-3. Select the repository folder.
-
-The extension asks for no permissions: it only runs inside DevTools, through `chrome.devtools.inspectedWindow`.
+2. Open `chrome://extensions`, turn on **Developer mode** and click **Load unpacked**.
+3. Pick the repository folder.
 
 ## Usage
 
-1. Open DevTools on a page that uses three.js and pick the **Three** panel (it may be under `»`).
-2. If the 3D view only renders on demand, orbit or zoom it once so it draws a frame.
-3. Select objects in the tree to inspect and edit them. Double-click an object (or press **Blink**) to make it blink in the page.
-4. Select a mesh, a group or the whole scene and export it. Scale is in millimeters per scene unit; glTF models are usually in meters, so 1000.
+1. Open DevTools on a page that uses three.js and select the **Three** panel (it may be under `»`).
+2. If the 3D view only renders when you interact with it, orbit or zoom once.
+3. Click an object in the tree to see and edit its properties. Double-click it to make it blink on the page.
 
-## How it finds three.js
+## How it works
 
-Nothing runs until the panel is opened. three.js is usually loaded long before that, so hooking constructors is not an option. Instead the panel injects a small agent that briefly patches a few hot paths a rendering app goes through every frame or on every interaction:
+Nothing runs until you open the panel. Then a small agent is added to the page and briefly patches a few functions that a rendering three.js app calls every frame (property lookups on `Object.prototype`, `Array.prototype.sort`, `Function.prototype.call`/`apply`). The first three.js object it sees leads to the scene, and every patch is removed right after. **Rescan** searches again.
 
-- **Getter traps on `Object.prototype`** for flags such as `isLOD` and `isSprite`. The renderer reads them on every object it draws, and a plain mesh doesn't own them, so the lookup reaches the trap with the mesh as `this`. The getter returns `undefined`, exactly what the lookup would have returned.
-- **`Array.prototype.sort`**, which render lists call on `{ object, geometry, material }` items.
-- **`Function.prototype.call` / `apply`**, through which `EventDispatcher` delivers events such as OrbitControls' `change`.
+The extension asks for no permissions, makes no network requests and collects no data. See [PRIVACY.md](PRIVACY.md).
 
-The first `Object3D` found is walked up to its root (normally the `Scene`). The agent keeps listening for 400 ms to pick up extra scenes, then restores every original. To learn the renderer and camera, it sets a one-shot `onBeforeRender` on the scene and a few meshes; each one removes itself the first time it runs. With the renderer known, edits on apps that render on demand are drawn right away.
-
-Frames without a `<canvas>` are never patched, and if nothing shows up within two minutes the patches are removed anyway. **Rescan** starts a new search.
-
-## Export
-
-- World-space geometry from `BufferGeometry` (indexed or not, draw ranges, interleaved and normalized/quantized attributes) and legacy `Geometry` (< r125).
-- Morph targets, skinned meshes (current pose), instanced meshes, and mirrored transforms (winding is fixed).
-- Binary STL (everything merged) or 3MF (one object per mesh with its base color, or a single object).
-- Optional Y-up → Z-up conversion.
-
-Not supported: meshes whose vertex arrays were freed after upload to the GPU (reported as having no CPU data), `BatchedMesh`, vertex displacement done in shaders, and three.js running in a worker with `OffscreenCanvas`.
-
-Only export models you own or have permission to use.
-
-## Tests
-
-The `test` folder bundles several three.js versions into minified pages that don't expose three.js. The runner starts Chromium with the extension, opens DevTools on each page, drives the **Three** panel through the Chrome DevTools Protocol (edit a property, preview, export STL and 3MF) and checks that every patch was removed.
+## Development
 
 ```bash
 cd test
 npm install
-npm run build         # also downloads the Khronos sample models (Fox, Duck)
-npm run serve &       # serves on 127.0.0.1:8701 and :8702 (cross-origin iframe)
-npm test              # or: node run.cjs https://threejs.org/examples/webgl_loader_gltf.html
-python3 check.py      # validates the exported files (needs trimesh)
+npm run build          # test pages + sample models
+npm run serve &        # 127.0.0.1:8701 and :8702
+npm test               # drives the real DevTools panel on every test page
+node screenshots.cjs   # regenerates store/screenshots
 ```
 
-`node screenshots.cjs` regenerates the store screenshots in `store/screenshots` from a demo scene, and `scripts/package.sh` builds the zip to upload. The store listing texts are in [`store/listing.md`](store/listing.md).
-
-Set `CHROMIUM_PATH` to use a specific Chromium build and `DOCK=bottom` to dock DevTools at the bottom. The test pages cover:
-
-- r187 with an animation loop, a skinned glTF, and an instanced mesh
-- r187 rendering only on OrbitControls changes
-- r110 with legacy `Geometry`, rendering only on mouse wheel
-- r130 inside a cross-origin iframe, with one buffer freed after upload
-- `WebGPURenderer`
+`scripts/package.sh` builds the zip for the Chrome Web Store. The listing texts are in [store/listing.md](store/listing.md).
 
 ## License
 
